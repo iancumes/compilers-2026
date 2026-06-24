@@ -1,0 +1,11 @@
+version: '3.7'
+services:
+  gcp:
+    build: .
+    environment:
+      - GCP_PROJECT=YOUR_PROJECT_ID
+      - GCP_ZONE=us-central1-a
+    volumes:
+      - .:/workspace
+      - ../program/credentials.json:/credentials.json
+    working_dir: /workspace

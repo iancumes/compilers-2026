@@ -19,7 +19,50 @@ Así es exactamente como funcionan herramientas como **Vercel CLI** y **Netlify 
 
 ---
 
-## 🧰 Instrucciones de Configuración
+## 🧰 Parte 1: Explorar las APIs Directamente con curl
+
+Antes de que ANTLR lo haga por ti, debes llamar a la API de GitHub y la API de Vercel tú mismo usando **curl** desde un contenedor Docker — exactamente igual a como funciona la opción de DigitalOcean con los scripts de Bash.
+
+### 1. Prerequisito: Tener tu `.env`
+
+Completa primero los pasos de "Crear tokens" de la sección siguiente y crea `program/.env`. Los scripts lo leen desde ahí.
+
+### 2. Construir la Imagen
+
+Desde la carpeta `scripts/`:
+```bash
+docker-compose build
+```
+
+### 3. Crear un Repositorio en GitHub vía API
+
+```bash
+docker-compose run api-explorer bash create_repo.sh
+```
+
+Observa la respuesta JSON de la API de GitHub. Se crea un repo real en tu cuenta.
+
+### 4. Subir un Archivo al Repositorio vía API
+
+```bash
+docker-compose run api-explorer bash push_file.sh
+```
+
+Esto llama al endpoint `PUT /repos/{owner}/{repo}/contents/{path}` de GitHub para subir `index.html` con un commit — sin `git`, sin `git push`.
+
+### 5. Desplegar a Vercel vía API
+
+```bash
+docker-compose run api-explorer bash deploy_to_vercel.sh
+```
+
+Esto llama directamente al endpoint `POST /v13/deployments` de Vercel. Observa la URL que se imprime y ábrela en tu navegador.
+
+> 🔍 **Observa lo que pasa:** Tres llamadas `curl`, tres APIs, un sitio publicado en internet. En la Parte 2, tu compilador ANTLR va a leer un archivo `.sl`, generar el HTML, y hacer exactamente estas mismas llamadas de forma automática.
+
+---
+
+## 🤖 Parte 2: Compilador con ANTLR
 
 ### 1. Crear tu Personal Access Token de GitHub
 

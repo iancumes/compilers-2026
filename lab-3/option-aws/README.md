@@ -18,7 +18,47 @@ Así es exactamente como funciona Terraform por dentro: parsea archivos `.tf`, c
 
 ---
 
-## 🧰 Instrucciones de Configuración
+## 🧰 Parte 1: Explorar la API de AWS Directamente
+
+Antes de que ANTLR lo haga por ti, debes llamar a la API de EC2 tú mismo usando la **AWS CLI** desde un contenedor Docker. Esto te permite entender exactamente qué operación está automatizando el compilador.
+
+### 1. Configurar el Contenedor
+
+Edita `scripts/docker-compose.yml` y reemplaza los placeholders con tus credenciales reales:
+
+```yaml
+environment:
+  - AWS_ACCESS_KEY=TU_ACCESS_KEY_ID
+  - AWS_SECRET_KEY=TU_SECRET_ACCESS_KEY
+  - AWS_REGION=us-east-1
+```
+
+### 2. Construir la Imagen
+
+Desde la carpeta `scripts/`:
+```bash
+docker-compose build
+```
+
+### 3. Crear la Instancia EC2 Directamente
+
+```bash
+docker-compose run aws bash create_instance.sh
+```
+
+Observa el JSON de respuesta de la API. Guarda el **Instance ID** que se imprime — lo necesitarás para terminarla.
+
+### 4. Terminar la Instancia
+
+```bash
+docker-compose run aws bash terminate_instance.sh
+```
+
+> 🔍 **Observa lo que pasa:** Estás llamando a `ec2.run-instances` y `ec2.terminate-instances` directamente. En la Parte 2, tu compilador ANTLR va a hacer exactamente lo mismo, pero leyendo los parámetros desde un archivo `.tf`.
+
+---
+
+## 🤖 Parte 2: Parser con ANTLR
 
 ### 1. Obtener Credenciales de AWS
 

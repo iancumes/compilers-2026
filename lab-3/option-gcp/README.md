@@ -19,7 +19,50 @@ Así es exactamente como funciona Terraform por dentro: parsea archivos `.tf`, c
 
 ---
 
-## 🧰 Instrucciones de Configuración
+## 🧰 Parte 1: Explorar la API de GCP Directamente
+
+Antes de que ANTLR lo haga por ti, debes llamar a la API de Compute Engine tú mismo usando **gcloud CLI** desde un contenedor Docker. Esto te permite entender exactamente qué operación está automatizando el compilador.
+
+### 1. Prerequisito: Tener `credentials.json`
+
+Completa primero los pasos de "Crear una Cuenta de Servicio" de la sección siguiente y coloca tu `credentials.json` en la carpeta `program/`. Los scripts lo necesitan.
+
+### 2. Configurar el Contenedor
+
+Edita `scripts/docker-compose.yml` y reemplaza los placeholders:
+
+```yaml
+environment:
+  - GCP_PROJECT=TU_PROJECT_ID
+  - GCP_ZONE=us-central1-a
+```
+
+### 3. Construir la Imagen
+
+Desde la carpeta `scripts/`:
+```bash
+docker-compose build
+```
+
+### 4. Crear la Instancia Directamente
+
+```bash
+docker-compose run gcp bash create_instance.sh
+```
+
+Observa la respuesta de la API: nombre, estado, zona.
+
+### 5. Eliminar la Instancia
+
+```bash
+docker-compose run gcp bash delete_instance.sh
+```
+
+> 🔍 **Observa lo que pasa:** Estás llamando a `gcloud compute instances create` y `delete` directamente. En la Parte 2, tu compilador ANTLR va a hacer lo mismo, pero leyendo los parámetros desde un archivo de infraestructura.
+
+---
+
+## 🤖 Parte 2: Parser con ANTLR
 
 ### 1. Crear una Cuenta de Servicio en GCP
 
