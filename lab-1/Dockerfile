@@ -40,7 +40,9 @@ RUN apt-get update && apt-get install -y \
 
 RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt-get update && apt-get install -y \
-    python3-pip
+    python3-pip \
+    python3-venv \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install ANTLR
 # We are using a version we downloaded from https://www.antlr.org/download/antlr-4.13.2-complete.jar
