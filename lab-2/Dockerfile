@@ -36,30 +36,22 @@ RUN apt-get update && apt-get install -y \
     fontconfig \
     fonts-dejavu-core \
     software-properties-common \
+    python3 \
+    python3-pip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt-get update && apt-get install -y \
-    python3-pip
-
 # Install ANTLR
-# We are using a version we downloaded from https://www.antlr.org/download/antlr-4.13.2-complete.jar
-COPY antlr-4.13.2-complete.jar /usr/local/lib/antlr-4.13.2-complete.jar
+COPY antlr-4.13.1-complete.jar /usr/local/lib/antlr-4.13.1-complete.jar
 
 COPY ./commands/antlr /usr/local/bin/antlr
-RUN chmod +x /usr/local/bin/antlr
+RUN sed -i 's/\r$//' /usr/local/bin/antlr && chmod +x /usr/local/bin/antlr
 COPY ./commands/antlr /usr/bin/antlr
-RUN chmod +x /usr/bin/antlr
+RUN sed -i 's/\r$//' /usr/bin/antlr && chmod +x /usr/bin/antlr
 
 COPY ./commands/grun /usr/local/bin/grun
-RUN chmod +x /usr/local/bin/grun
+RUN sed -i 's/\r$//' /usr/local/bin/grun && chmod +x /usr/local/bin/grun
 COPY ./commands/grun /usr/bin/grun
-RUN chmod +x /usr/bin/grun
-
-# Python virtual env
-COPY python-venv.sh .
-RUN chmod +x ./python-venv.sh
-RUN ./python-venv.sh
+RUN sed -i 's/\r$//' /usr/bin/grun && chmod +x /usr/bin/grun
 
 COPY requirements.txt .
 # Not production-intended, never do this, this is just a simple example

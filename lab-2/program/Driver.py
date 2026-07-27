@@ -2,21 +2,42 @@ import sys
 from antlr4 import *
 from SimpleLangLexer import SimpleLangLexer
 from SimpleLangParser import SimpleLangParser
+from syntax_error_listener import SyntaxErrorListener
 from type_check_visitor import TypeCheckVisitor
 
+
 def main(argv):
-    input_stream = FileStream(argv[1])
-    lexer = SimpleLangLexer(input_stream)
-    stream = CommonTokenStream(lexer)
-    parser = SimpleLangParser(stream)
-    tree = parser.prog()
+  if len(argv) != 2:
+    print(f"Usage: python3 {argv[0]} <input-file>")
+    return 1
 
-    visitor = TypeCheckVisitor()
-    try:
-        visitor.visit(tree)
-        print("Type checking passed")
-    except TypeError as e:
-        print(f"Type checking error: {e}")
+  input_stream = FileStream(argv[1], encoding="utf-8")
+  lexer = SimpleLangLexer(input_stream)
+  syntax_listener = SyntaxErrorListener()
+  lexer.removeErrorListeners()
+  lexer.addErrorListener(syntax_listener)
+  stream = CommonTokenStream(lexer)
+  parser = SimpleLangParser(stream)
+  parser.removeErrorListeners()
+  parser.addErrorListener(syntax_listener)
+  tree = parser.prog()
 
-if __name__ == '__main__':
-    main(sys.argv)
+  if syntax_listener.errors:
+    for error in syntax_listener.errors:
+      print(f"Syntax error: {error}")
+    print("Syntax checking failed")
+    return 1
+
+  visitor = TypeCheckVisitor()
+  visitor.visit(tree)
+  if visitor.errors:
+    for error in visitor.errors:
+      print(f"Type checking error: {error}")
+    return 1
+
+  print("Type checking passed")
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main(sys.argv))

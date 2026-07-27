@@ -1,11 +1,12 @@
 grammar SimpleLang;
 
-prog: stat+ ;
+prog: stat+ EOF ;
 
 stat: expr NEWLINE ;
 
-expr: expr op=('*'|'/') expr       # MulDiv
+expr: expr op=('*'|'/'|'%') expr   # MulDivMod
     | expr op=('+'|'-') expr       # AddSub
+    | expr op='==' expr            # Equality
     | INT                          # Int
     | FLOAT                        # Float
     | STRING                       # String

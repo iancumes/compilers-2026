@@ -1,2 +1,9 @@
 configs
 program/__pycache__
+program/.antlr/
+program/*.interp
+program/*.tokens
+program/SimpleLangLexer.py
+program/SimpleLangListener.py
+program/SimpleLangParser.py
+program/SimpleLangVisitor.py
