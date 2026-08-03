@@ -1,54 +1,53 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-PROJECT_NAME="my-portfolio-api-test"
+: "${VERCEL_TOKEN:?VERCEL_TOKEN is required}"
 
-# Write HTML to a temp file
-cat > /tmp/index.html << 'EOF'
+PROJECT_NAME="${SITE_NAME:-lab3-sitelang-ian-cumes}"
+TEAM_QUERY=""
+if [ -n "${VERCEL_TEAM_ID:-}" ]; then
+  TEAM_QUERY="?teamId=$VERCEL_TEAM_ID"
+fi
+
+cat > /tmp/index.html <<'EOF'
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Deployed via the Vercel API</title>
-  <style>
-    body { font-family: sans-serif; background: #0f172a; color: #e2e8f0;
-           display: flex; align-items: center; justify-content: center;
-           height: 100vh; margin: 0; text-align: center; }
-    h1 { color: #4ade80; }
-    p  { opacity: .7; max-width: 500px; }
-    code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
-  </style>
-</head>
-<body>
-  <div>
-    <h1>Deployed via the Vercel API</h1>
-    <p>This page was deployed using <code>curl</code> — no Vercel CLI, no dashboard, just a REST call to the Vercel Deployments API.</p>
-  </div>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SiteLang API Explorer</title></head>
+<body style="font-family:system-ui;background:#07111f;color:#e7eef7;display:grid;place-items:center;min-height:100vh;margin:0">
+  <main style="max-width:680px;padding:2rem;text-align:center">
+    <h1 style="color:#63e6be">Deployment creado con la API de Vercel</h1>
+    <p>Esta es la prueba directa de la Parte 1. No se utilizo el dashboard ni la CLI para publicar el archivo.</p>
+  </main>
 </body>
 </html>
 EOF
 
 HTML_CONTENT=$(cat /tmp/index.html)
+jq -n --arg name "$PROJECT_NAME" --arg html "$HTML_CONTENT" \
+  '{name: $name, files: [{file: "index.html", data: $html}], projectSettings: {framework: null}, target: "production"}' \
+  > /tmp/vercel-deployment.json
 
-echo "[*] Calling the Vercel Deployments API directly..."
-echo "[*] Project name: $PROJECT_NAME"
-echo ""
+curl --fail-with-body -sS -X POST \
+  -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+  --data-binary @/tmp/vercel-deployment.json \
+  "https://api.vercel.com/v13/deployments$TEAM_QUERY" > /tmp/vercel-result.json
 
-RESPONSE=$(curl -s -X POST "https://api.vercel.com/v13/deployments" \
-  -H "Authorization: Bearer $VERCEL_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n \
-    --arg name "$PROJECT_NAME" \
-    --arg html "$HTML_CONTENT" \
-    '{name: $name, files: [{file: "index.html", data: $html}], projectSettings: {framework: null}, target: "production"}')")
+DEPLOYMENT_ID=$(jq -r '.id' /tmp/vercel-result.json)
+for attempt in $(seq 1 45); do
+  STATE=$(jq -r '.readyState // .state // "QUEUED"' /tmp/vercel-result.json)
+  if [ "$STATE" = "READY" ]; then
+    URL=$(jq -r 'if (.alias | type) == "array" and (.alias | length) > 0 then .alias[0] else .url end' /tmp/vercel-result.json)
+    echo "[OK] Vercel deployment READY: https://$URL"
+    exit 0
+  fi
+  if [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
+    echo "Vercel deployment ended in state $STATE" >&2
+    exit 1
+  fi
+  sleep 2
+  curl --fail-with-body -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+    "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID$TEAM_QUERY" > /tmp/vercel-result.json
+done
 
-URL=$(echo "$RESPONSE" | jq -r '.url')
-
-if [ "$URL" = "null" ]; then
-  echo "Error: $(echo "$RESPONSE" | jq -r '.error.message // .message')"
-  exit 1
-fi
-
-echo "[✓] Deployed to: https://$URL"
-echo ""
-echo "[*] This is exactly the same API call your ANTLR compiler will automate in Parte 2."
+echo "Vercel deployment did not become READY within 90 seconds." >&2
+exit 1

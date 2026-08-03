@@ -1,51 +1,44 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-if [ ! -f repo_full_name.txt ]; then
-  echo "Error: repo_full_name.txt not found. Run create_repo.sh first."
-  exit 1
-fi
+: "${GITHUB_TOKEN:?GITHUB_TOKEN is required}"
+[ -f repo_full_name.txt ] || { echo "Run create_repo.sh first." >&2; exit 1; }
 
 FULL_NAME=$(cat repo_full_name.txt)
+API="https://api.github.com"
+ENDPOINT="$API/repos/$FULL_NAME/contents/index.html"
+HEADERS=(-H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
 
-# Write the HTML to a temp file so we can base64 it cleanly
-cat > /tmp/index.html << 'EOF'
+cat > /tmp/index.html <<'EOF'
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Hello from the GitHub API</title>
-  <style>
-    body { font-family: sans-serif; background: #0f172a; color: #e2e8f0;
-           display: flex; align-items: center; justify-content: center;
-           height: 100vh; margin: 0; text-align: center; }
-    h1 { color: #4ade80; }
-    p  { opacity: .7; max-width: 500px; }
-  </style>
-</head>
-<body>
-  <div>
-    <h1>Pushed via the GitHub API</h1>
-    <p>This file was created using <code>curl</code> — no git clone, no GUI, just a REST call to the GitHub Contents API.</p>
-  </div>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SiteLang API Explorer</title></head>
+<body style="font-family:system-ui;background:#07111f;color:#e7eef7;display:grid;place-items:center;min-height:100vh;margin:0">
+  <main style="max-width:680px;padding:2rem;text-align:center">
+    <h1 style="color:#63e6be">Archivo publicado con la API de GitHub</h1>
+    <p>Esta pagina es la prueba de la Parte 1. El compilador SiteLang la reemplazara con el sitio final.</p>
+  </main>
 </body>
 </html>
 EOF
 
-CONTENT_B64=$(base64 -w 0 /tmp/index.html)
+STATUS=$(curl -sS -o /tmp/current-file.json -w "%{http_code}" "${HEADERS[@]}" "$ENDPOINT")
+SHA=""
+if [ "$STATUS" = "200" ]; then
+  SHA=$(jq -r '.sha' /tmp/current-file.json)
+elif [ "$STATUS" != "404" ]; then
+  jq -r '.message // "Unknown GitHub error"' /tmp/current-file.json >&2
+  exit 1
+fi
 
-echo "[*] Pushing index.html to $FULL_NAME via GitHub Contents API..."
+CONTENT=$(base64 -w 0 /tmp/index.html)
+jq -n --arg message "Publish API explorer page" --arg content "$CONTENT" --arg sha "$SHA" \
+  '{message: $message, content: $content,
+    committer: {name: "iancumes", email: "87866288+iancumes@users.noreply.github.com"},
+    author: {name: "iancumes", email: "87866288+iancumes@users.noreply.github.com"}}
+   + (if $sha == "" then {} else {sha: $sha} end)' > /tmp/update-file.json
 
-RESPONSE=$(curl -s -X PUT "https://api.github.com/repos/$FULL_NAME/contents/index.html" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  -d "$(jq -n \
-    --arg msg "Add index.html via GitHub API" \
-    --arg content "$CONTENT_B64" \
-    '{message: $msg, content: $content}')")
+curl --fail-with-body -sS -X PUT "${HEADERS[@]}" -H "Content-Type: application/json" \
+  --data-binary @/tmp/update-file.json "$ENDPOINT" > /tmp/file-result.json
 
-FILE_URL=$(echo "$RESPONSE" | jq -r '.content.html_url')
-echo "[✓] File pushed: $FILE_URL"
-echo ""
-echo "[*] Next step: run deploy_to_vercel.sh"
+echo "[OK] File: $(jq -r '.content.html_url' /tmp/file-result.json)"
