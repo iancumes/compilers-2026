@@ -1,2 +1,8 @@
 program/.env
+program/generated/
+program/SiteLangLexer.py
+program/SiteLangListener.py
+program/SiteLangParser.py
+scripts/repo_full_name.txt
+.vercel/
 credentials.json

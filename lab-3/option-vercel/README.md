@@ -1,210 +1,125 @@
-# 🧪 Laboratorio 3 — Opción D: GitHub + Vercel (✅ 100% Gratuita)
+# Laboratorio 3 - Opcion D: GitHub + Vercel
 
-## 📋 Descripción General
+Este laboratorio implementa **SiteLang**, un DSL pequeño que describe un sitio
+estatico. ANTLR genera el lexer y el parser; un Listener valida la configuracion,
+genera `index.html`, actualiza un repositorio publico mediante la API de GitHub y
+crea un deployment de produccion mediante la API REST de Vercel.
 
-En esta opción escribirás un **DSL propio llamado SiteLang** que define la estructura y contenido de un sitio web. Tu compilador — construido con ANTLR — parseará ese archivo, generará HTML, creará un repositorio en GitHub, subirá el código, y desplegará el sitio en Vercel. Al terminar, obtendrás una **URL pública real y accesible desde cualquier lugar del mundo**.
+El proyecto esta preparado para ejecutarse varias veces. Si el repositorio o el
+archivo ya existen, se reutilizan y actualizan en lugar de crear duplicados.
 
-Así es exactamente como funcionan herramientas como **Vercel CLI** y **Netlify CLI** por dentro: parsean un archivo de configuración (que es un DSL), generan un plan, y llaman a APIs REST para desplegar tu aplicación. Tú estás construyendo exactamente ese pipeline, desde cero, con ANTLR.
+## Requisitos
 
-* **Modalidad: Individual**
-* **Costo: $0.00** — No se requiere tarjeta de crédito.
+- Docker Desktop en ejecucion.
+- Cuenta de GitHub autenticada como `iancumes`.
+- Cuenta de Vercel vinculada a GitHub.
+- Tokens locales en `program/.env`. Este archivo esta ignorado por Git.
 
----
+Crear el archivo local a partir de la plantilla:
 
-## 💰 ¿Por qué esta opción es completamente gratuita?
-
-- **GitHub:** cuenta gratuita, repositorios públicos ilimitados, API gratuita.
-- **Vercel:** el plan Hobby (gratuito) permite deployments ilimitados de sitios estáticos, sin expiración y sin tarjeta de crédito.
-- No hay instancias de cómputo que generen cargos por hora.
-
----
-
-## 🧰 Parte 1: Explorar las APIs Directamente con curl
-
-Antes de que ANTLR lo haga por ti, debes llamar a la API de GitHub y la API de Vercel tú mismo usando **curl** desde un contenedor Docker — exactamente igual a como funciona la opción de DigitalOcean con los scripts de Bash.
-
-### 1. Prerequisito: Tener tu `.env`
-
-Completa primero los pasos de "Crear tokens" de la sección siguiente y crea `program/.env`. Los scripts lo leen desde ahí.
-
-### 2. Construir la Imagen
-
-Desde la carpeta `scripts/`:
-```bash
-docker-compose build
+```powershell
+Copy-Item program/.env.example program/.env
 ```
 
-### 3. Crear un Repositorio en GitHub vía API
+Variables disponibles:
 
-```bash
-docker-compose run api-explorer bash create_repo.sh
+```text
+GITHUB_TOKEN=...
+VERCEL_TOKEN=...
+VERCEL_TEAM_ID=...   # opcional cuando el proyecto pertenece a un equipo
 ```
 
-Observa la respuesta JSON de la API de GitHub. Se crea un repo real en tu cuenta.
+Nunca se deben incluir estos valores en commits, capturas o videos.
 
-### 4. Subir un Archivo al Repositorio vía API
+## Parte 1: explorar las APIs con curl
 
-```bash
-docker-compose run api-explorer bash push_file.sh
+Desde `lab-3/option-vercel/scripts`:
+
+```powershell
+docker compose build
+docker compose run --rm api-explorer bash create_repo.sh
+docker compose run --rm api-explorer bash push_file.sh
+docker compose run --rm api-explorer bash deploy_to_vercel.sh
 ```
 
-Esto llama al endpoint `PUT /repos/{owner}/{repo}/contents/{path}` de GitHub para subir `index.html` con un commit — sin `git`, sin `git push`.
+Los scripts crean o reutilizan `iancumes/lab3-sitelang-ian-cumes`, publican una
+pagina de prueba y crean un deployment en Vercel. El archivo
+`repo_full_name.txt` es estado local y no se versiona.
 
-### 5. Desplegar a Vercel vía API
+## Parte 2: compilar SiteLang
 
-```bash
-docker-compose run api-explorer bash deploy_to_vercel.sh
+Desde `lab-3/option-vercel` construir la imagen:
+
+```powershell
+docker build --rm . -t lab3-vercel
 ```
 
-Esto llama directamente al endpoint `POST /v13/deployments` de Vercel. Observa la URL que se imprime y ábrela en tu navegador.
+Validar la entrada y generar HTML sin usar APIs externas:
 
-> 🔍 **Observa lo que pasa:** Tres llamadas `curl`, tres APIs, un sitio publicado en internet. En la Parte 2, tu compilador ANTLR va a leer un archivo `.sl`, generar el HTML, y hacer exactamente estas mismas llamadas de forma automática.
-
----
-
-## 🤖 Parte 2: Compilador con ANTLR
-
-### 1. Crear tu Personal Access Token de GitHub
-
-1. Crea una cuenta en [github.com](https://github.com) si no tienes una — es gratis.
-2. Ve a [github.com/settings/tokens](https://github.com/settings/tokens).
-3. Haz clic en **Generate new token (classic)**.
-4. Dale un nombre descriptivo (ej. `lab3-compiler`).
-5. Selecciona el scope: ✅ **repo** (acceso completo a repositorios).
-6. Haz clic en **Generate token** y copia el token — **solo se muestra una vez**.
-
-### 2. Crear tu API Token de Vercel
-
-1. Crea una cuenta en [vercel.com](https://vercel.com) si no tienes una — es gratis. Puedes registrarte con tu cuenta de GitHub.
-2. Ve a [vercel.com/account/tokens](https://vercel.com/account/tokens).
-3. Haz clic en **Create** y dale un nombre (ej. `lab3-compiler`).
-4. Copia el token generado.
-
-### 3. Configurar las Variables de Entorno
-
-Copia el archivo de ejemplo y llena tus tokens:
-
-```bash
-cp program/.env.example program/.env
+```powershell
+docker run --rm --env-file program/.env -v "${PWD}\program:/program" lab3-vercel `
+  bash -lc "antlr -Dlanguage=Python3 -listener SiteLang.g4 && python3 Driver.py site.sl --dry-run"
 ```
 
-Edita `program/.env`:
+Ejecutar el flujo completo:
 
+```powershell
+docker run --rm --env-file program/.env -v "${PWD}\program:/program" lab3-vercel `
+  bash -lc "antlr -Dlanguage=Python3 -listener SiteLang.g4 && python3 Driver.py site.sl"
 ```
-GITHUB_TOKEN=ghp_tuTokenDeGitHubAqui
-VERCEL_TOKEN=tuTokenDeVercelAqui
-```
 
-> ⚠️ **ADVERTENCIA:** El archivo `program/.env` contiene tus tokens de acceso. Está en `.gitignore` y **nunca debe subirse a GitHub**. Si alguien obtiene tus tokens, puede crear repositorios y deployments en tu nombre.
+La salida local queda en `program/generated/index.html`. Una ejecucion completa
+tambien imprime el repositorio generado, el archivo publicado y la URL de
+produccion de Vercel.
 
-### 4. Personalizar tu Sitio
+## Estructura del DSL
 
-Edita `program/site.sl` con tu información. Este archivo es tu **programa** — el input de tu compilador. Cambia el nombre del sitio, título, descripción, y el contenido de la página:
-
-```
-site "mi-portfolio" {
-  title       = "Tu Nombre — UVG 2026"
-  description = "Estudiante de CS construyendo compiladores"
+```text
+site "nombre-del-proyecto" {
+  title       = "Titulo"
+  description = "Descripcion"
   theme       = "dark"
+  author      = "Nombre"
+  course      = "Curso"
+  repository  = "https://github.com/usuario/repositorio"
 
   page "index" {
-    hero    = "Hola, construí este sitio con un compilador que yo escribí"
-    about   = "Soy estudiante de la Universidad del Valle de Guatemala..."
-    contact = "tu@email.com"
+    hero        = "Mensaje principal"
+    about       = "Descripcion del proyecto"
+    stack       = "Tecnologias"
+    contact     = "Etiqueta del enlace"
+    contact_url = "https://github.com/usuario"
   }
 }
 ```
 
-### 5. Construir la Imagen Docker
+El compilador rechaza atributos desconocidos, nombres que no son slugs, temas
+distintos de `light` o `dark`, URLs no seguras y entradas sin la pagina
+`index`. Si hay un error lexico, sintactico o semantico, termina antes de llamar
+a GitHub o Vercel.
 
-Desde el directorio raíz de esta opción (`option-vercel/`), ejecuta:
+## Pruebas
 
-```bash
-docker build --rm . -t lab3-vercel
-```
-
----
-
-## 🔧 Ejecutar el Compilador
-
-Una vez construida la imagen, ejecuta el compilador completo con un solo comando:
+Las pruebas incluidas cubren una compilacion valida, un error sintactico, un
+error semantico y credenciales ausentes. Dentro del contenedor:
 
 ```bash
-docker run --rm \
-  --env-file program/.env \
-  -v "$(pwd)/program":/program \
-  lab3-vercel bash -c "antlr -Dlanguage=Python3 -listener SiteLang.g4 && python3 Driver.py site.sl"
+antlr -Dlanguage=Python3 -listener SiteLang.g4
+python3 -m unittest discover -s tests -v
 ```
 
-Este comando en un solo paso:
-1. Genera el lexer y parser a partir de tu gramática.
-2. Parsea tu archivo `site.sl` y construye el árbol sintáctico.
-3. El listener recorre el árbol y genera HTML estilizado.
-4. Crea un repositorio público en tu cuenta de GitHub.
-5. Sube el HTML generado al repositorio.
-6. Despliega el repositorio en Vercel vía su API.
-7. Imprime la URL pública de tu sitio.
+Codigos de salida del driver:
 
-- ✅ Si los tokens son correctos, verás la URL de tu sitio al final.
-- ❌ Si hay un error de autenticación, revisa que los valores en `program/.env` sean correctos.
+- `0`: compilacion o deployment exitoso.
+- `1`: error lexico, sintactico, semantico o de API.
+- `2`: uso incorrecto, archivo inexistente o credenciales ausentes.
 
----
+## Archivos principales
 
-## 📤 Salida Esperada
-
-```
-[*] Compiling site definition 'mi-portfolio'...
-[+] GitHub repo created: https://github.com/tu-usuario/mi-portfolio
-[+] index.html pushed to GitHub
-[✓] Deployed to Vercel: https://mi-portfolio-abc123.vercel.app
-
-[✓] Done! Your compiler just deployed a live website.
-```
-
-Abre la URL de Vercel en tu navegador — tu compilador acaba de construir y publicar un sitio web real.
-
----
-
-## 📁 Estructura de Archivos
-
-```
-option-vercel/
-├── Dockerfile
-├── .dockerignore
-├── .gitignore
-├── requirements.txt
-├── python-venv.sh
-├── commands/
-│   ├── antlr
-│   └── grun
-└── program/
-    ├── SiteLang.g4       # La gramática ANTLR — el corazón del DSL
-    ├── Driver.py         # Punto de entrada del compilador
-    ├── SiteListener.py   # El listener que genera HTML y despliega
-    ├── site.sl           # Tu programa: define el sitio a desplegar (edita esto)
-    ├── .env.example      # Plantilla de variables de entorno
-    └── .env              # Tus tokens reales (NO subir a GitHub)
-```
-
----
-
-## 📋 Entregables
-
-- **Video de YouTube no listado** mostrando el compilador corriendo, la URL de Vercel siendo impresa, y el sitio abierto en el navegador.
-- **Repositorio de GitHub** con tu código fuente. No subas el archivo `.env`.
-- **Escrito breve:** explica cómo tu compilador mapea al funcionamiento real de Vercel CLI o Netlify CLI. ¿Qué hace tu listener que es análogo a lo que hacen estas herramientas cuando ejecutas `vercel deploy`?
-
----
-
-## 🚀 ¿Qué Está Pasando por Dentro?
-
-Cuando ejecutas el compilador, el flujo es:
-
-1. **ANTLR** tokeniza y parsea tu archivo `site.sl` usando la gramática `SiteLang.g4`.
-2. El `SiteListener` recorre el árbol sintáctico y extrae título, descripción, tema y contenido.
-3. Se genera un archivo `index.html` completo — esto es la **generación de código** de tu compilador.
-4. Se llama a la **API de GitHub** para crear un repositorio y subir el HTML.
-5. Se llama a la **API de Vercel** para desplegar el archivo directamente.
-6. Tu sitio queda vivo en internet en cuestión de segundos.
-
-Esto es exactamente lo que hace **Vercel CLI** cuando ejecutas `vercel deploy`: parsea tu configuración, genera los archivos necesarios, y llama a la misma API que usamos aquí.
+- `program/SiteLang.g4`: gramatica combinada del DSL.
+- `program/Driver.py`: coordinacion del lexer, parser, Listener y deployment.
+- `program/SiteListener.py`: validacion, generacion de HTML y clientes REST.
+- `program/site.sl`: sitio personalizado de la entrega.
+- `scripts/`: exploracion directa de las APIs con `curl`.
+- `docs/`: informe breve en Word y PDF.
+- `ENTREGA.md`: enlaces y resumen final de la entrega.
